@@ -1,0 +1,37 @@
+# Environment
+.env
+.venv
+.claude
+.claude-plugin
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+*.egg-info/
+dist/
+build/
+
+# Databricks
+*.databricks
+.databricks/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Session files
+session.json
+*.log
