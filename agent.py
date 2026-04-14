@@ -2,7 +2,7 @@
 from typing import TypedDict
 
 from dotenv import load_dotenv
-from langchain_core.messages import BaseMessage, HumanMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from typing import Annotated, List
 from langgraph.graph import MessagesState, StateGraph, add_messages, END 
 from langgraph.prebuilt import ToolNode
@@ -14,15 +14,11 @@ from langchain_openai import ChatOpenAI
 
 mcp_client = MultiServerMCPClient(
     {
-        "filesystem": {
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-filesystem", "./ai-dev-kit"],
-            "transport": "stdio",
-        }
-        ,"databricks": {
+        # ,
+        "databricks": {
             "command": "uv",
-            "args": ["run",  "--directory", "./ai-dev-kit", "python", "databricks-mcp-server/run_server.py"],
-            "defer_loading": True,
+            "args": ["run",  "--directory", "/home/ash/code_projects/ai-dev-kit", "python", "databricks-mcp-server/run_server.py"],
+            # "defer_loading": True,
             "transport": "stdio"
         }
     }
@@ -37,8 +33,11 @@ async def get_llm_with_tools():
 class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], add_messages]
 
+SYSTEM_PROMPT = "You are a helpful Databricks assistant."
+
 async def agent_node(state, llm_with_tools):
-    resp = await llm_with_tools.ainvoke(state["messages"])
+    messages = [SystemMessage(SYSTEM_PROMPT)] + state["messages"]
+    resp = await llm_with_tools.ainvoke(messages)
     return {"messages": [resp] }
 
 def make_tool_node(tools):
@@ -71,17 +70,17 @@ async def build_graph():
     return graph.compile()
 
 async def main():
-    llm_with_tools, tools = await get_llm_with_tools()
-    print(tools)
-    # app = await build_graph()
-    # async for chunk in app.astream({"messages" : [HumanMessage("List the files ")] },
-    #                                stream_mode="updates"):
-    #     for node, state in chunk.items():
-    #         print("\n", node)
-    #         for msg in state["messages"]:
-    #             print(msg.content or msg.tool_calls)
-
-
+    app = await build_graph()
+    while True:
+        user_input = input("$user: ")
+        if any(keyword in user_input.lower() for keyword in ["exit", "done"]):
+            break
+        async for chunk in app.astream({"messages" : [HumanMessage(user_input)] },
+                                    stream_mode="updates"):
+            for node, state in chunk.items():
+                print("\n $", node)
+                for msg in state["messages"]:
+                    print(msg.content or msg.tool_calls)
 
 if __name__ == '__main__':
     asyncio.run(main())
